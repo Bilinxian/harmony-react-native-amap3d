@@ -1,6 +1,11 @@
 {
   "apiType": "stageMode",
   "buildOption": {
+    "packingOptions": {
+      "asset": {
+        "include": ["./src/main/cpp/*"],    // 配置打包到HAR产物中的文件
+      }
+    }
   },
   "buildOptionSet": [
     {
