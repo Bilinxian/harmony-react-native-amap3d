@@ -106,8 +106,6 @@ export struct AMapView {
           GlobalCache.mapPolyLine.clear();
           GlobalCache.mapMarker.delete(this.tag);
           GlobalCache.markerTagAndDescriptorTag.delete(this.tag);
-          GlobalCache.mapMarker.delete(this.tag);
-          GlobalCache.markerTagAndDescriptorTag.delete(this.tag);
           /*------ 当RN侧属性props有更改 -------*/
           this.gDMapDescriptor = (newDescriptor as GDMapViewDescriptor)
           let oldMyLocationEnabled = this.myLocationEnabled;
@@ -622,7 +620,7 @@ export struct AMapView {
                     this.markers[markerIndex].setDraggable(mapMarkerProps.draggable ? mapMarkerProps.draggable : false);
                     //this.markers[markerIndex].setZIndex(mapMarkerProps.zIndex ? mapMarkerProps.zIndex : 1);
                     this.markers[markerIndex].setFlat(mapMarkerProps.flat ? mapMarkerProps.flat : false);
-                    this.markers[markerIndex].setPositionByPixels(mapMarkerProps.centerOffset?.x,mapMarkerProps.centerOffset?.y);
+                    this.markers[markerIndex].getOptions().setInfoWindowOffset(mapMarkerProps.centerOffset?.x,mapMarkerProps.centerOffset?.y);
                     this.markers[markerIndex].setMarkerOptions(this.markers[markerIndex].getOptions());
                     //Handel Custom Marker
                     if(markerChild.length > 0) {
