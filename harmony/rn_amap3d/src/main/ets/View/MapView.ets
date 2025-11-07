@@ -104,6 +104,10 @@ export struct AMapView {
       (newDescriptor) => {
         if (this.aMap) {
           GlobalCache.mapPolyLine.clear();
+          GlobalCache.mapMarker.delete(this.tag);
+          GlobalCache.markerTagAndDescriptorTag.delete(this.tag);
+          GlobalCache.mapMarker.delete(this.tag);
+          GlobalCache.markerTagAndDescriptorTag.delete(this.tag);
           /*------ 当RN侧属性props有更改 -------*/
           this.gDMapDescriptor = (newDescriptor as GDMapViewDescriptor)
           let oldMyLocationEnabled = this.myLocationEnabled;
@@ -494,7 +498,7 @@ export struct AMapView {
             circle.setStrokeColor(rgbaToHex(circleProp.strokeColor ? circleProp.strokeColor :
               "rgba(0, 0, 255, 0.5)"));
             circle.setStrokeWidth(circleProp.strokeWidth ? circleProp.strokeWidth : 5);
-	    circle.setZIndex(circleProp.zIndex ? circleProp.zIndex : 2);
+            circle.setZIndex(circleProp.zIndex ? circleProp.zIndex : 2);
           }
           break;
         case A_MAP_POLYGON_TYPE:
@@ -606,7 +610,6 @@ export struct AMapView {
           let mapMarkerProps = markerDescriptor.rawProps as AMapMarkerProps;
           this.markers = (GlobalCache.mapMarker.get(this.tag) ?? []);
           let markerTagAndDescriptorTagArray = GlobalCache.markerTagAndDescriptorTag.get(this.tag) ?? [];
-
           for (let index = 0; index < markerTagAndDescriptorTagArray.length; index++) {
             markerTagAndDescriptorTagArray[index].forEach(async (value: string, key: number, map: HashMap<number, string>) => {
               if (markerDescriptor.tag == key) {
@@ -614,12 +617,12 @@ export struct AMapView {
                   if (this.markers[markerIndex].getId() == value) {
                     flag = true;
                     this.markers[markerIndex].setPosition(new LatLng(mapMarkerProps.position.latitude, mapMarkerProps.position.longitude));
-                    this.markers[markerIndex].setAnchor(mapMarkerProps.anchor ? mapMarkerProps.anchor.x : 1,
-                      mapMarkerProps.anchor ? mapMarkerProps.anchor.y : 0.5);
+                    this.markers[markerIndex].setAnchor(mapMarkerProps.anchor ? mapMarkerProps.anchor.x : 0.5,
+                      mapMarkerProps.anchor ? mapMarkerProps.anchor.y : 1);
                     this.markers[markerIndex].setDraggable(mapMarkerProps.draggable ? mapMarkerProps.draggable : false);
                     //this.markers[markerIndex].setZIndex(mapMarkerProps.zIndex ? mapMarkerProps.zIndex : 1);
                     this.markers[markerIndex].setFlat(mapMarkerProps.flat ? mapMarkerProps.flat : false);
-                    this.markers[markerIndex].getOptions().setInfoWindowOffset(mapMarkerProps.centerOffset?.x,mapMarkerProps.centerOffset?.y);
+                    this.markers[markerIndex].setPositionByPixels(mapMarkerProps.centerOffset?.x,mapMarkerProps.centerOffset?.y);
                     this.markers[markerIndex].setMarkerOptions(this.markers[markerIndex].getOptions());
                     //Handel Custom Marker
                     if(markerChild.length > 0) {
@@ -655,8 +658,8 @@ export struct AMapView {
               try {
                 if (markerOptions) {
                   markerOptions.setPosition(new LatLng(mapMarkerProps.position.latitude, mapMarkerProps.position.longitude));
-                  markerOptions.setAnchor(mapMarkerProps.anchor ? mapMarkerProps.anchor.x : 1,
-                    mapMarkerProps.anchor ? mapMarkerProps.anchor.y : 0.5);
+                  markerOptions.setAnchor(mapMarkerProps.anchor ? mapMarkerProps.anchor.x : 0.5,
+                    mapMarkerProps.anchor ? mapMarkerProps.anchor.y : 1);
                   //handle custom marker
                   if (markerChild.length > 0) {
                     let bitmapView: BitmapDescriptor | undefined = await BitmapDescriptorFactory.fromView(() => {
@@ -733,9 +736,20 @@ export struct AMapView {
   private stopLocationUpdates() {
     this.locationManager?.stopUpdatingLocation();
   }
+
   @Builder
   customMarkerBuilder(markerTag: number) {
-    ContentSlot(this.ctx.getContentForTag(markerTag))
+    Stack({ alignContent: Alignment.Center }) {
+      Column() {
+        ContentSlot(this.ctx.getContentForTag(markerTag))
+      }
+      .width(200)
+      .height(85)
+      .justifyContent(FlexAlign.Center)
+      .alignItems(HorizontalAlign.Center)
+    }
+    .width(300)
+    .height(85)
   }
 
   activate(listener: OnLocationChangedListener): void {
