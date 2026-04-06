@@ -36,7 +36,11 @@ import { BusinessError } from '@kit.BasicServicesKit';
 import geoLocationManager from '@ohos.geoLocationManager';
 import {
   AMapLocationManagerImpl,
-  AMapLocationOption, AMapLocationReGeocodeLanguage, AMapLocationType, IAMapLocationListener } from '@amap/amap_lbs_location';
+  AMapLocationOption,
+  AMapLocationReGeocodeLanguage,
+  AMapLocationType,
+  IAMapLocationListener
+} from '@amap/amap_lbs_location';
 import { DownloadIcon } from '../DownloadIcon';
 
 export interface MapViewProps extends ViewBaseProps {
@@ -82,11 +86,12 @@ export struct AMapView {
   private intervalId: number = 0;
   private unregisterDescriptorChangesListener?: () => void = undefined
   private cleanupCallback?: () => void = undefined;
-  private markers : Array<Marker> = new Array();
-  private polylines : Array<Polyline> = new Array();
-  private markerTagAndDescriptorTagArray : Array<HashMap<number, string>> = new Array();
-  private polylineTagAndDescriptorTagArray : Array<HashMap<number, string>> = new Array();
+  private markers: Array<Marker> = new Array();
+  private polylines: Array<Polyline> = new Array();
+  private markerTagAndDescriptorTagArray: Array<HashMap<number, string>> = new Array();
+  private polylineTagAndDescriptorTagArray: Array<HashMap<number, string>> = new Array();
   private mapListener?: OnLocationChangedListener;
+
   aboutToAppear(): void {
     this.cleanupCallback = this.ctx.componentCommandReceiver.registerCommandCallback(
       this.tag,
@@ -104,8 +109,8 @@ export struct AMapView {
       (newDescriptor) => {
         if (this.aMap) {
           GlobalCache.mapPolyLine.clear();
-          GlobalCache.mapMarker.delete(this.tag);
-          GlobalCache.markerTagAndDescriptorTag.delete(this.tag);
+          // GlobalCache.mapMarker.delete(this.tag);
+          // GlobalCache.markerTagAndDescriptorTag.delete(this.tag);
           /*------ 当RN侧属性props有更改 -------*/
           this.gDMapDescriptor = (newDescriptor as GDMapViewDescriptor)
           let oldMyLocationEnabled = this.myLocationEnabled;
@@ -142,7 +147,7 @@ export struct AMapView {
     GlobalCache.circleCacheMap.clear();
   }
 
-  locationManager?:AMapLocationManagerImpl
+  locationManager?: AMapLocationManagerImpl
   private locationStyle: MyLocationStyle = new MyLocationStyle();
   private mapView?: MapView;
   private aMap?: AMap;
@@ -318,7 +323,7 @@ export struct AMapView {
             this.locationStyle.myLocationType(targetType);
             this.aMap.setMyLocationStyle(this.locationStyle);
           }
-        },50);
+        }, 50);
       }
       this.aMap?.setOnPolylineClickListener((polyLine: Polyline): void => {
         let len: number | undefined = GlobalCache.mapPolyLine.get(this.tag)?.length;
@@ -473,7 +478,137 @@ export struct AMapView {
     }
   }
 
+  private findMarkerByTag(tag: number): Marker | undefined {
+    let markers = GlobalCache.mapMarker.get(this.tag) ?? [];
+    let tagMap = GlobalCache.markerTagAndDescriptorTag.get(this.tag) ?? [];
+    for (let i = 0; i < tagMap.length; i++) {
+      let hashMap = tagMap[i];
+
+      // 使用 forEach 遍历 HashMap 的键值对
+      let foundMarkerId: string = '';
+      hashMap.forEach((value: string, key: number) => {
+        if (key === tag) {
+          foundMarkerId = value;
+        }
+      });
+      if (foundMarkerId) {
+        let marker = markers.find(m => m.getId() === foundMarkerId);
+        if (marker) {
+          return marker;
+        }
+      }
+    }
+    return undefined;
+  }
+
+  // 辅助方法：从缓存中移除 marker
+  private removeMarkerFromCache(marker: Marker, tag: number): void {
+    // 从 markers 数组中移除
+    let markers = GlobalCache.mapMarker.get(this.tag) ?? [];
+    let index = markers.findIndex(m => m.getId() === marker.getId());
+    if (index !== -1) {
+      markers.splice(index, 1);
+      GlobalCache.mapMarker.set(this.tag, markers);
+    }
+
+    // 从 tag 映射中移除
+    let tagMap = GlobalCache.markerTagAndDescriptorTag.get(this.tag) ?? [];
+    let mapIndex = tagMap.findIndex(map => map.hasKey(tag));
+    if (mapIndex !== -1) {
+      tagMap.splice(mapIndex, 1);
+      GlobalCache.markerTagAndDescriptorTag.set(this.tag, tagMap);
+    }
+  }
+
+  // 创建新 marker
+  private async createNewMarker(markerDescriptor: Descriptor, mapMarkerProps: AMapMarkerProps): Promise<void> {
+
+    // 先清理所有相同 tag 的旧 marker
+    let tagsToRemove: number[] = [];
+
+    // 找出所有相同 tag 的 marker
+    for (let i = 0; i < this.markerTagAndDescriptorTagArray.length; i++) {
+      this.markerTagAndDescriptorTagArray[i].forEach((markerId, tag) => {
+        if (tag === markerDescriptor.tag) {
+          tagsToRemove.push(i);
+          // 移除对应的 marker 对象
+          let markerIndex = this.markers.findIndex(m => m.getId() === markerId);
+          if (markerIndex !== -1) {
+            this.markers[markerIndex].remove();
+            this.markers.splice(markerIndex, 1);
+          }
+        }
+      });
+    }
+
+    for (let i = tagsToRemove.length - 1; i >= 0; i--) {
+      this.markerTagAndDescriptorTagArray.splice(tagsToRemove[i], 1);
+    }
+
+    let markerOptions = new MarkerOptions();
+    let markerChild = markerDescriptor.childrenTags;
+
+    markerOptions.setPosition(new LatLng(
+      mapMarkerProps.position.latitude,
+      mapMarkerProps.position.longitude
+    ));
+    markerOptions.setAnchor(
+      mapMarkerProps.anchor ? mapMarkerProps.anchor.x : 0.5,
+      mapMarkerProps.anchor ? mapMarkerProps.anchor.y : 1
+    );
+
+    // 设置图标
+    if (markerChild.length > 0) {
+      let bitmapView = await BitmapDescriptorFactory.fromView(() => {
+        this.customMarkerBuilder(markerDescriptor.tag);
+      });
+      markerOptions.setIcon(bitmapView);
+    } else if (mapMarkerProps.icon) {
+      try {
+        await DownloadIcon.updataMakerIcon(this.getUIContext(), markerOptions, mapMarkerProps.icon);
+      } catch (error) {
+        let bitmapDesNull = await BitmapDescriptorFactory.fromRawfilePath(
+          globalContext, "common/marker_default.png"
+        );
+        if (bitmapDesNull) {
+          markerOptions.setIcon(bitmapDesNull);
+        }
+      }
+    }
+
+    markerOptions.setDraggable(mapMarkerProps.draggable || false);
+    markerOptions.setZIndex(mapMarkerProps.zIndex || 1);
+    markerOptions.setFlat(mapMarkerProps.flat || false);
+
+    let marker = this.aMap?.addMarker(markerOptions);
+    if (marker) {
+      // 更新本地数组
+      let markerTagAndDescriptorTagMap = new HashMap<number, string>();
+      markerTagAndDescriptorTagMap.set(markerDescriptor.tag, marker.getId());
+      this.markerTagAndDescriptorTagArray.push(markerTagAndDescriptorTagMap);
+      this.markers.push(marker);
+
+      // 更新 GlobalCache
+      GlobalCache.markerTagAndDescriptorTag.set(this.tag, this.markerTagAndDescriptorTagArray);
+      GlobalCache.mapMarker.set(this.tag, this.markers);
+
+    }
+  }
+
+  // 更新 marker 属性
+  private updateMarkerProperties(marker: Marker, mapMarkerProps: AMapMarkerProps): void {
+    marker.setAnchor(
+      mapMarkerProps.anchor ? mapMarkerProps.anchor.x : 0.5,
+      mapMarkerProps.anchor ? mapMarkerProps.anchor.y : 1
+    );
+    marker.setDraggable(mapMarkerProps.draggable || false);
+    marker.setFlat(mapMarkerProps.flat || false);
+    marker.setZIndex(mapMarkerProps.zIndex || 1);
+  }
+
   private async getOverlay(descriptor: GDMapViewDescriptor) {
+    this.markers = GlobalCache.mapMarker.get(this.tag) ?? [];
+    this.markerTagAndDescriptorTagArray = GlobalCache.markerTagAndDescriptorTag.get(this.tag) ?? [];
     let tagName = "";
     let flag = false;
     let flagLine = false;
@@ -526,8 +661,9 @@ export struct AMapView {
           let mapPolylineProp =
             this.ctx.descriptorRegistry.getDescriptor(descriptor.childrenTags[i]).rawProps as AMapPolylineProps;
           let childPolyLineTag: number = this.ctx.descriptorRegistry.getDescriptor(descriptor.childrenTags[i]).tag;
-          let GlobalCachePolyLines : Array<Polyline> = GlobalCache.mapPolyLine.get(this.tag) ?? [];
-          let polyLinesTagAndDescriptorTagArray: Array<HashMap<number, string>> = GlobalCache.polyLinesTagAndDescriptorTag.get(this.tag) ?? [];
+          let GlobalCachePolyLines: Array<Polyline> = GlobalCache.mapPolyLine.get(this.tag) ?? [];
+          let polyLinesTagAndDescriptorTagArray: Array<HashMap<number, string>> =
+            GlobalCache.polyLinesTagAndDescriptorTag.get(this.tag) ?? [];
           for (let index = 0; index < polyLinesTagAndDescriptorTagArray.length; index++) {
             polyLinesTagAndDescriptorTagArray[index].forEach(async (value: string, key: number,
               map: HashMap<number, string>) => {
@@ -536,12 +672,15 @@ export struct AMapView {
                   if (GlobalCachePolyLines[polylineIndex].getId() == value) {
                     flagLine = true;
                     GlobalCachePolyLines[polylineIndex].setZIndex(mapPolylineProp.zIndex ? mapPolylineProp.zIndex : 1);
-                    GlobalCachePolyLines[polylineIndex].setDottedLine(mapPolylineProp.dotted ? mapPolylineProp.dotted : false);
-                    GlobalCachePolyLines[polylineIndex].setGeodesic(mapPolylineProp.geodesic ? mapPolylineProp.geodesic : false);
+                    GlobalCachePolyLines[polylineIndex].setDottedLine(mapPolylineProp.dotted ? mapPolylineProp.dotted :
+                      false);
+                    GlobalCachePolyLines[polylineIndex].setGeodesic(mapPolylineProp.geodesic ?
+                      mapPolylineProp.geodesic : false);
                     GlobalCachePolyLines[polylineIndex].setWidth(mapPolylineProp.width ?
-                    this.getUIContext().vp2px(mapPolylineProp.width) :   this.getUIContext().vp2px(5));
+                      this.getUIContext().vp2px(mapPolylineProp.width) : this.getUIContext().vp2px(5));
                     if (mapPolylineProp.color) {
-                      GlobalCachePolyLines[polylineIndex].setColor(rgbaToHex(mapPolylineProp.color ? mapPolylineProp.color :
+                      GlobalCachePolyLines[polylineIndex].setColor(rgbaToHex(mapPolylineProp.color ?
+                        mapPolylineProp.color :
                         "rgba(0, 255, 0, 0.5)"));
                     }
                     if (mapPolylineProp.colors) {
@@ -557,7 +696,7 @@ export struct AMapView {
               }
             })
           }
-          if (!flagLine) {//处理GlobalCache中不存在的情况
+          if (!flagLine) { //处理GlobalCache中不存在的情况
             let polylineOptions = new PolylineOptions();
             this.polyLineTag.push(childPolyLineTag);
             GlobalCache.currentPagePolyline.set(childPolyLineTag, this.tag)
@@ -576,7 +715,8 @@ export struct AMapView {
                   }
                   polylineOptions.setColorValues(test);
                 } else if (mapPolylineProp.color) {
-                  polylineOptions.setColor(rgbaToHex(mapPolylineProp.color ? mapPolylineProp.color : "rgba(0, 255, 0, 0.5)"))
+                  polylineOptions.setColor(rgbaToHex(mapPolylineProp.color ? mapPolylineProp.color :
+                    "rgba(0, 255, 0, 0.5)"))
                 }
                 let polyline = this.aMap?.addPolyline(
                   polylineOptions
@@ -585,11 +725,11 @@ export struct AMapView {
                     .setDottedLine(mapPolylineProp.dotted ? mapPolylineProp.dotted : false)
                     .setGeodesic(mapPolylineProp.geodesic ? mapPolylineProp.geodesic : false)
                     .setWidth(mapPolylineProp.width ?
-                    this.getUIContext().vp2px(mapPolylineProp.width) : this.getUIContext().vp2px(5))
+                      this.getUIContext().vp2px(mapPolylineProp.width) : this.getUIContext().vp2px(5))
                     .setGradient(mapPolylineProp.gradient ? mapPolylineProp.gradient : false));
-                if(polyline){
+                if (polyline) {
                   polyline.setPoints(polylineOptionsList);
-                  let polyLineTagAndDescriptorTagMap : HashMap<number, string> = new HashMap<number, string>();
+                  let polyLineTagAndDescriptorTagMap: HashMap<number, string> = new HashMap<number, string>();
                   polyLineTagAndDescriptorTagMap.set(childPolyLineTag, polyline.getId())
                   this.polylineTagAndDescriptorTagArray.push(polyLineTagAndDescriptorTagMap);
                   this.polylines.push(polyline);
@@ -603,98 +743,26 @@ export struct AMapView {
           }
           break;
         case A_MAP_MARKER_TYPE:
-          let markerDescriptor: Descriptor = this.ctx.descriptorRegistry.getDescriptor(descriptor.childrenTags[i])
-          let markerChild: number[] = markerDescriptor.childrenTags;
+          let markerDescriptor: Descriptor = this.ctx.descriptorRegistry.getDescriptor(descriptor.childrenTags[i]);
           let mapMarkerProps = markerDescriptor.rawProps as AMapMarkerProps;
-          this.markers = (GlobalCache.mapMarker.get(this.tag) ?? []);
-          let markerTagAndDescriptorTagArray = GlobalCache.markerTagAndDescriptorTag.get(this.tag) ?? [];
-          for (let index = 0; index < markerTagAndDescriptorTagArray.length; index++) {
-            markerTagAndDescriptorTagArray[index].forEach(async (value: string, key: number, map: HashMap<number, string>) => {
-              if (markerDescriptor.tag == key) {
-                for (let markerIndex = 0; markerIndex < this.markers.length; markerIndex++) {
-                  if (this.markers[markerIndex].getId() == value) {
-                    flag = true;
-                    this.markers[markerIndex].setPosition(new LatLng(mapMarkerProps.position.latitude, mapMarkerProps.position.longitude));
-                    this.markers[markerIndex].setAnchor(mapMarkerProps.anchor ? mapMarkerProps.anchor.x : 0.5,
-                      mapMarkerProps.anchor ? mapMarkerProps.anchor.y : 1);
-                    this.markers[markerIndex].setDraggable(mapMarkerProps.draggable ? mapMarkerProps.draggable : false);
-                    //this.markers[markerIndex].setZIndex(mapMarkerProps.zIndex ? mapMarkerProps.zIndex : 1);
-                    this.markers[markerIndex].setFlat(mapMarkerProps.flat ? mapMarkerProps.flat : false);
-                    this.markers[markerIndex].getOptions().setInfoWindowOffset(mapMarkerProps.centerOffset?.x,mapMarkerProps.centerOffset?.y);
-                    this.markers[markerIndex].setMarkerOptions(this.markers[markerIndex].getOptions());
-                    //Handel Custom Marker
-                    if(markerChild.length > 0) {
-                      let bitmapView : BitmapDescriptor | undefined = await BitmapDescriptorFactory.fromView(() => {
-                        this.customMarkerBuilder(markerDescriptor.tag);
-                      })
-                      this.markers[markerIndex].setIcon(bitmapView);
-                    } else {
-                      if (mapMarkerProps.icon) {
-                        try {
-                          await DownloadIcon.updataMakerIcon(this.getUIContext(), this.markers[markerIndex], mapMarkerProps.icon);
-                        } catch (error) {
-                          let bitmapDesNull: BitmapDescriptor | undefined =
-                            await BitmapDescriptorFactory.fromRawfilePath(globalContext, "common/marker_default.png");
-                          if (bitmapDesNull) {
-                            this.markers[markerIndex].setIcon(bitmapDesNull);
-                          }
-                        }
-                      }
-                    }
-                    break;
-                  }
-                }
-              }
-            })
-          }
+          let existingMarker = this.findMarkerByTag(markerDescriptor.tag);
+          if (existingMarker) {
+            let oldPosition = existingMarker.getPosition();
+            let newPosition = new LatLng(
+              mapMarkerProps.position.latitude,
+              mapMarkerProps.position.longitude
+            );
 
-          if (!flag) {
-            let markerOptions = new MarkerOptions();
-            GlobalCache.currentPageMarker.set(markerDescriptor.tag, this.tag)
-            this.markerTag.push(this.ctx.descriptorRegistry.getDescriptor(descriptor.childrenTags[i]).tag);
-            if (this.aMap) {
-              try {
-                if (markerOptions) {
-                  markerOptions.setPosition(new LatLng(mapMarkerProps.position.latitude, mapMarkerProps.position.longitude));
-                  markerOptions.setAnchor(mapMarkerProps.anchor ? mapMarkerProps.anchor.x : 0.5,
-                    mapMarkerProps.anchor ? mapMarkerProps.anchor.y : 1);
-                  //handle custom marker
-                  if (markerChild.length > 0) {
-                    let bitmapView: BitmapDescriptor | undefined = await BitmapDescriptorFactory.fromView(() => {
-                      this.customMarkerBuilder(markerDescriptor.tag);
-                    })
-                    markerOptions.setIcon(bitmapView);
-                  } else {
-                    if (mapMarkerProps.icon) {
-                      try {
-                        await DownloadIcon.updataMakerIcon(this.getUIContext(), markerOptions, mapMarkerProps.icon);
-                      } catch (error) {
-                        let bitmapDesNull: BitmapDescriptor | undefined =
-                          await BitmapDescriptorFactory.fromRawfilePath(globalContext, "common/marker_default.png");
-                        if (bitmapDesNull) {
-                          markerOptions.setIcon(bitmapDesNull);
-                        }
-                      }
-                    }
-                  }
-                  markerOptions.setDraggable(mapMarkerProps.draggable ? mapMarkerProps.draggable : false);
-                  markerOptions.setZIndex(mapMarkerProps.zIndex ? mapMarkerProps.zIndex : 1);
-                  markerOptions.setFlat(mapMarkerProps.flat ? mapMarkerProps.flat : false);
-                  markerOptions.setInfoWindowOffset(mapMarkerProps.centerOffset?.x,mapMarkerProps.centerOffset?.y);
-                  let marker: Marker| undefined = this.aMap.addMarker(markerOptions);
-                  if(marker){
-                    let markerTagAndDescriptorTagMap : HashMap<number, string> = new HashMap<number, string>();
-                    markerTagAndDescriptorTagMap.set(markerDescriptor.tag, marker.getId())
-                    this.markerTagAndDescriptorTagArray.push(markerTagAndDescriptorTagMap);
-                    this.markers.push(marker);
-                  }
-                  GlobalCache.markerTagAndDescriptorTag.set(this.tag, this.markerTagAndDescriptorTagArray);
-                  GlobalCache.mapMarker.set(this.tag, this.markers);
-                }
-              } catch (error) {
-                Logger.error('mapMarkerProps---------Error adding marker:', error);
-              }
+            if (oldPosition.latitude !== newPosition.latitude ||
+              oldPosition.longitude !== newPosition.longitude) {
+              existingMarker.remove();
+              this.removeMarkerFromCache(existingMarker, markerDescriptor.tag);
+              await this.createNewMarker(markerDescriptor, mapMarkerProps);
+            } else {
+              this.updateMarkerProperties(existingMarker, mapMarkerProps);
             }
+          } else {
+            await this.createNewMarker(markerDescriptor, mapMarkerProps);
           }
           break;
       }
@@ -702,7 +770,8 @@ export struct AMapView {
       flagLine = false;
     }
   }
-  private  startLocationUpdates() {
+
+  private startLocationUpdates() {
     if (this.myLocationEnabled) {
       let options: AMapLocationOption = {
         priority: geoLocationManager.LocationRequestPriority.FIRST_FIX,
