@@ -228,29 +228,63 @@ export struct AMapView {
     })
   }
 
-  onMarkerClickFunction(num: number): void {
-    this.ctx.rnInstance.emitComponentEvent(this.markerTag[num], A_MAP_MARKER_TYPE, {
+  /** 用 AMap markerId 反查 RN Marker 的 descriptor tag */
+  private getMarkerRnTagById(markerId: string): number | undefined {
+    const tagMap = GlobalCache.markerTagAndDescriptorTag.get(this.tag)
+      ?? this.markerTagAndDescriptorTagArray;
+    for (let i = 0; i < tagMap.length; i++) {
+      let foundTag: number | undefined = undefined;
+      tagMap[i].forEach((id: string, tag: number) => {
+        if (id === markerId) {
+          foundTag = tag;
+        }
+      });
+      if (foundTag !== undefined) {
+        return foundTag;
+      }
+    }
+    return undefined;
+  }
+
+  onMarkerClickFunction(markerId: string): void {
+    const markerTag = this.getMarkerRnTagById(markerId);
+    if (markerTag === undefined) {
+      return;
+    }
+    this.ctx.rnInstance.emitComponentEvent(markerTag, A_MAP_MARKER_TYPE, {
       type: 'onPress'
-    })
+    });
   }
 
-  onMarkerDragStartFunction(num: number): void {
-    this.ctx.rnInstance.emitComponentEvent(this.markerTag[num], A_MAP_MARKER_TYPE, {
+  onMarkerDragStartFunction(markerId: string): void {
+    const markerTag = this.getMarkerRnTagById(markerId);
+    if (markerTag === undefined) {
+      return;
+    }
+    this.ctx.rnInstance.emitComponentEvent(markerTag, A_MAP_MARKER_TYPE, {
       type: 'onDragStart'
-    })
+    });
   }
 
-  onMarkerDragFunction(num: number): void {
-    this.ctx.rnInstance.emitComponentEvent(this.markerTag[num], A_MAP_MARKER_TYPE, {
+  onMarkerDragFunction(markerId: string): void {
+    const markerTag = this.getMarkerRnTagById(markerId);
+    if (markerTag === undefined) {
+      return;
+    }
+    this.ctx.rnInstance.emitComponentEvent(markerTag, A_MAP_MARKER_TYPE, {
       type: 'onDrag'
-    })
+    });
   }
 
-  onMarkerDragEndFunction(point: LatLng, num: number): void {
-    this.ctx.rnInstance.emitComponentEvent(this.markerTag[num], A_MAP_MARKER_TYPE, {
+  onMarkerDragEndFunction(point: LatLng, markerId: string): void {
+    const markerTag = this.getMarkerRnTagById(markerId);
+    if (markerTag === undefined) {
+      return;
+    }
+    this.ctx.rnInstance.emitComponentEvent(markerTag, A_MAP_MARKER_TYPE, {
       type: 'onDragEnd',
       LatLng: point
-    })
+    });
   }
 
   private mapViewCreateCallback = (mapview?: MapView, mapViewName?: string) => {
@@ -338,59 +372,19 @@ export struct AMapView {
       });
 
       this.aMap?.setOnMarkerClickListener((marker: Marker): boolean => {
-        if (GlobalCache.mapMarker.get(this.tag)) {
-          let len: number | undefined = GlobalCache.mapMarker.get(this.tag)?.length;
-          let markers: Array<Marker> | undefined = GlobalCache.mapMarker.get(this.tag);
-          if (len && markers) {
-            for (let index = 0; index < len; ++index) {
-              if (marker.getId() == markers[index].getId()) {
-                this.onMarkerClickFunction(index);
-              }
-            }
-          }
-        }
+        this.onMarkerClickFunction(marker.getId());
         return true;
       });
 
       this.aMap?.setOnMarkerDragListener(new OnMarkerDragListener(
         (DragStart: Marker) => {
-          let len: number | undefined = GlobalCache.mapMarker.get(this.tag)?.length;
-          let markers: Array<Marker> | undefined = GlobalCache.mapMarker.get(this.tag);
-          if (len && markers) {
-            for (let index = 0; index < len; ++index) {
-              if (len && markers) {
-                if (DragStart == markers[index]) {
-                  this.onMarkerDragStartFunction(index);
-                }
-              }
-            }
-          }
+          this.onMarkerDragStartFunction(DragStart.getId());
         },
         (Drag: Marker) => {
-          let len: number | undefined = GlobalCache.mapMarker.get(this.tag)?.length;
-          let markers: Array<Marker> | undefined = GlobalCache.mapMarker.get(this.tag);
-          if (len && markers) {
-            for (let index = 0; index < len; ++index) {
-              if (len && markers) {
-                if (Drag == markers[index]) {
-                  this.onMarkerDragFunction(index);
-                }
-              }
-            }
-          }
+          this.onMarkerDragFunction(Drag.getId());
         },
         (DragEnd: Marker) => {
-          let len: number | undefined = GlobalCache.mapMarker.get(this.tag)?.length;
-          let markers: Array<Marker> | undefined = GlobalCache.mapMarker.get(this.tag);
-          if (len && markers) {
-            for (let index = 0; index < len; ++index) {
-              if (len && markers) {
-                if (DragEnd == markers[index]) {
-                  this.onMarkerDragEndFunction(DragEnd.getPosition(), index)
-                }
-              }
-            }
-          }
+          this.onMarkerDragEndFunction(DragEnd.getPosition(), DragEnd.getId());
         }))
     })
   }
