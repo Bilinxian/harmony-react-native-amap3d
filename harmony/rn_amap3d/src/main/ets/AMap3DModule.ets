@@ -24,6 +24,7 @@
 
 import { TurboModule, TurboModuleContext } from '@rnoh/react-native-openharmony/ts';
 import { MapsInitializer } from '@amap/amap_lbs_map3d';
+import { AMapPrivacyAgreeStatus, AMapPrivacyShowStatus, AMapPrivacyInfoStatus } from '@amap/amap_lbs_common';
 
 export class AMap3DModule extends TurboModule {
   constructor(ctx: TurboModuleContext) {
@@ -32,6 +33,14 @@ export class AMap3DModule extends TurboModule {
 
   initSDK(key: string) {
     MapsInitializer.setApiKey(key);
+
+    try {
+      const context = this.ctx.uiAbilityContext;
+      MapsInitializer.initialize(context);
+      MapsInitializer.updatePrivacyShow(AMapPrivacyShowStatus.DidShow, AMapPrivacyInfoStatus.DidContain, context)
+      MapsInitializer.updatePrivacyAgree(AMapPrivacyAgreeStatus.DidAgree, context)
+    } catch (error) {
+    }
   }
 
   getVersion(): string {
