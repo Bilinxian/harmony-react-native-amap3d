@@ -12,7 +12,6 @@ export default class Polyline extends Component<PolylineProps> {
     return (
       <AMapPolyline {...this.props} 
       onPress={(event: ReactNative.NativeSyntheticEvent<voidEvent>) => {
-        console.info("AMapViewEventType map3d polyline onPress-----------")
         this.props.onPress?.call(this, event);
       }}
       />
