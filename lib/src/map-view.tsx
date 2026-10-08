@@ -3,7 +3,7 @@ import AMapView, { Location, MapViewProps, voidEvent } from './map-viewNativeCom
 import React, { Component } from 'react';
 import type * as ReactNative from "react-native";
 import {NativeMethods} from "react-native";
-import { LatLng, CameraPosition, LatLngBounds, onCameraEvent, MapPoi, moveCameraCommands } from './map-viewNativeComponent'
+import { LatLng, CameraPosition, LatLngBounds, onCameraEvent, MapPoi,Commands as moveCameraCommands } from './map-viewNativeComponent'
 
 export default class MapView extends Component<MapViewProps> {
   constructor(props: MapViewProps) {
