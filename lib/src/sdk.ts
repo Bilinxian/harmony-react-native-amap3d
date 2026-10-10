@@ -1,9 +1,12 @@
-import AMapSdk from './NativeAMapSdk'
+import NativeAMapSdk from './NativeAMapSdk'
 
-export function init(apiKey: string) {
-  AMapSdk.initSDK(apiKey);
+const AMapSdk = {
+  init(apiKey: string) {
+    NativeAMapSdk?.initSDK(apiKey);
+  },
+  getVersion(): Promise<string> | undefined {
+    return NativeAMapSdk?.getVersion();
+  }
 }
 
-export function getVersion(): Promise<string> {
-  return AMapSdk.getVersion();
-}
+export default AMapSdk
