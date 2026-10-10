@@ -8,4 +8,5 @@ export { default as MultiPoint } from "./multi-point";
 export { default as Polygon } from "./polygon";
 export { default as Polyline } from "./polyline";
 export * from "./types"
+export { default as AMapSdk} from './sdk'
 
