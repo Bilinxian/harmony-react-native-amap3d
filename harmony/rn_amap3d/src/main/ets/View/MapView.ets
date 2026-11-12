@@ -19,7 +19,9 @@ import {
   Polyline,
   PolylineOptions,
   MyLocationStyle,
-  LocationSource
+  LocationSource,
+  Projection,
+  VisibleRegion,
 } from '@amap/amap_lbs_map3d';
 
 import { Descriptor, RNComponentContext, RNOHContext, RNViewBase, ViewBaseProps } from '@rnoh/react-native-openharmony';
@@ -63,6 +65,16 @@ export interface MapViewProps extends ViewBaseProps {
   tiltGesturesEnabled?: boolean;
   distanceFilter?: number;
   headingFilter?: number;
+}
+
+interface LatLngCoordinate {
+  latitude: number;
+  longitude: number;
+}
+
+interface LatLngBoundsObj {
+  southwest: LatLngCoordinate;
+  northeast: LatLngCoordinate;
 }
 
 const MAP_SHOW_FUNC = 'AMapView';
@@ -180,6 +192,37 @@ export struct AMapView {
     return this.aMap;
   }
 
+  buildLatLngBounds(): LatLngBoundsObj | null {
+    const projection: Projection | undefined = this.aMap?.getProjection();
+    const visibleRegion: VisibleRegion | undefined = projection?.getVisibleRegion();
+    if (visibleRegion) {
+      const corners: LatLng[] = [
+        visibleRegion.nearLeft,
+        visibleRegion.nearRight,
+        visibleRegion.farLeft,
+        visibleRegion.farRight
+      ];
+      let minLat: number = corners[0].latitude;
+      let maxLat: number = corners[0].latitude;
+      let minLng: number = corners[0].longitude;
+      let maxLng: number = corners[0].longitude;
+      for (let i = 1; i < corners.length; i++) {
+        minLat = Math.min(minLat, corners[i].latitude);
+        maxLat = Math.max(maxLat, corners[i].latitude);
+        minLng = Math.min(minLng, corners[i].longitude);
+        maxLng = Math.max(maxLng, corners[i].longitude);
+      }
+      const southwest: LatLngCoordinate = { latitude: minLat, longitude: minLng };
+      const northeast: LatLngCoordinate = { latitude: maxLat, longitude: maxLng };
+      const bounds: LatLngBoundsObj = { southwest: southwest, northeast: northeast };
+      return bounds;
+    }
+    const southwest: LatLngCoordinate = { latitude: 0, longitude: 0 };
+    const northeast: LatLngCoordinate = { latitude: 0, longitude: 0 };
+    const bounds: LatLngBoundsObj = { southwest: southwest, northeast: northeast };
+    return bounds;
+  }
+
   onClickFunction(point: LatLng) {
     this.ctx.rnInstance.emitComponentEvent(this.gDMapDescriptor.tag, MAP_SHOW_FUNC, {
       type: 'onPress',
@@ -204,14 +247,16 @@ export struct AMapView {
   onCameraMoveFunction(cameraMoveEvent: CameraPosition) {
     this.ctx.rnInstance.emitComponentEvent(this.gDMapDescriptor.tag, MAP_SHOW_FUNC, {
       type: 'onCameraMove',
-      CameraPosition: cameraMoveEvent
+      CameraPosition: cameraMoveEvent,
+      LatLngBounds: this.buildLatLngBounds()
     })
   }
 
   onCameraIdleFunction(cameraIdleEvent: CameraPosition) {
     this.ctx.rnInstance.emitComponentEvent(this.gDMapDescriptor.tag, MAP_SHOW_FUNC, {
       type: 'onCameraIdle',
-      CameraPosition: cameraIdleEvent
+      CameraPosition: cameraIdleEvent,
+      LatLngBounds: this.buildLatLngBounds()
     })
   }
 
