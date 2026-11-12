@@ -26,7 +26,7 @@
 namespace facebook {
 namespace react {
 void MapViewEventEmitter::onPress(struct onPressEvent event) const {
-    
+
     dispatchEvent("Press", [event = std::move(event)](jsi::Runtime &runtime) {
         auto payload = jsi::Object(runtime);
         payload.setProperty(runtime, "latitude", event.latitude);
@@ -56,7 +56,8 @@ void MapViewEventEmitter::onLongPress(struct onLongPressEvent event) const {
     });
 }
 
-static jsi::Object toJsiCameraPosition(jsi::Runtime &runtime, const MapViewEventEmitter::CameraPosition &cameraPosition) {
+static jsi::Object toJsiCameraPosition(jsi::Runtime &runtime,
+                                       const MapViewEventEmitter::CameraPosition &cameraPosition) {
     auto target = jsi::Object(runtime);
     target.setProperty(runtime, "latitude", cameraPosition.target.latitude);
     target.setProperty(runtime, "longitude", cameraPosition.target.longitude);
@@ -87,8 +88,21 @@ static jsi::Object toJsiLatLngBounds(jsi::Runtime &runtime, const MapViewEventEm
 void MapViewEventEmitter::onCameraMove(struct onCameraMoveEvent event) const {
     dispatchEvent("CameraMove", [event = std::move(event)](jsi::Runtime &runtime) {
         auto payload = jsi::Object(runtime);
-        payload.setProperty(runtime, "cameraPosition", toJsiCameraPosition(runtime, event.cameraPosition));
-        payload.setProperty(runtime, "latLngBounds", toJsiLatLngBounds(runtime, event.latLngBounds));
+        payload.setProperty(runtime, "zoom", event.cameraPosition.zoom);
+        payload.setProperty(runtime, "bearing", event.cameraPosition.bearing);
+        payload.setProperty(runtime, "tilt", event.cameraPosition.tilt);
+        auto target = jsi::Object(runtime);
+        target.setProperty(runtime, "longitude", event.cameraPosition.target.longitude);
+        target.setProperty(runtime, "latitude", event.cameraPosition.target.latitude);
+        payload.setProperty(runtime, "targetValue", target);
+        auto southwest = jsi::Object(runtime);
+        southwest.setProperty(runtime, "latitude", event.latLngBounds.southwest.latitude);
+        southwest.setProperty(runtime, "longitude", event.latLngBounds.southwest.longitude);
+        payload.setProperty(runtime, "southwest", southwest);
+        auto northeast = jsi::Object(runtime);
+        northeast.setProperty(runtime, "latitude", event.latLngBounds.northeast.latitude);
+        northeast.setProperty(runtime, "longitude", event.latLngBounds.northeast.longitude);
+        payload.setProperty(runtime, "northeast", northeast);
         return payload;
     });
 }
@@ -96,8 +110,21 @@ void MapViewEventEmitter::onCameraMove(struct onCameraMoveEvent event) const {
 void MapViewEventEmitter::onCameraIdle(struct onCameraIdleEvent event) const {
     dispatchEvent("CameraIdle", [event = std::move(event)](jsi::Runtime &runtime) {
         auto payload = jsi::Object(runtime);
-        payload.setProperty(runtime, "cameraPosition", toJsiCameraPosition(runtime, event.cameraPosition));
-        payload.setProperty(runtime, "latLngBounds", toJsiLatLngBounds(runtime, event.latLngBounds));
+        payload.setProperty(runtime, "zoom", event.cameraPosition.zoom);
+        payload.setProperty(runtime, "bearing", event.cameraPosition.bearing);
+        payload.setProperty(runtime, "tilt", event.cameraPosition.tilt);
+        auto target = jsi::Object(runtime);
+        target.setProperty(runtime, "longitude", event.cameraPosition.target.longitude);
+        target.setProperty(runtime, "latitude", event.cameraPosition.target.latitude);
+        payload.setProperty(runtime, "targetValue", target);
+        auto southwest = jsi::Object(runtime);
+        southwest.setProperty(runtime, "latitude", event.latLngBounds.southwest.latitude);
+        southwest.setProperty(runtime, "longitude", event.latLngBounds.southwest.longitude);
+        payload.setProperty(runtime, "southwest", southwest);
+        auto northeast = jsi::Object(runtime);
+        northeast.setProperty(runtime, "latitude", event.latLngBounds.northeast.latitude);
+        northeast.setProperty(runtime, "longitude", event.latLngBounds.northeast.longitude);
+        payload.setProperty(runtime, "northeast", northeast);
         return payload;
     });
 }
