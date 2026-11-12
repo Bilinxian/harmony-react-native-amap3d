@@ -56,30 +56,48 @@ void MapViewEventEmitter::onLongPress(struct onLongPressEvent event) const {
     });
 }
 
-void MapViewEventEmitter::onCameraMove(struct CameraPosition event) const {
+static jsi::Object toJsiCameraPosition(jsi::Runtime &runtime, const MapViewEventEmitter::CameraPosition &cameraPosition) {
+    auto target = jsi::Object(runtime);
+    target.setProperty(runtime, "latitude", cameraPosition.target.latitude);
+    target.setProperty(runtime, "longitude", cameraPosition.target.longitude);
+
+    auto result = jsi::Object(runtime);
+    result.setProperty(runtime, "target", target);
+    result.setProperty(runtime, "zoom", cameraPosition.zoom);
+    result.setProperty(runtime, "bearing", cameraPosition.bearing);
+    result.setProperty(runtime, "tilt", cameraPosition.tilt);
+    return result;
+}
+
+static jsi::Object toJsiLatLngBounds(jsi::Runtime &runtime, const MapViewEventEmitter::LatLngBounds &latLngBounds) {
+    auto southwest = jsi::Object(runtime);
+    southwest.setProperty(runtime, "latitude", latLngBounds.southwest.latitude);
+    southwest.setProperty(runtime, "longitude", latLngBounds.southwest.longitude);
+
+    auto northeast = jsi::Object(runtime);
+    northeast.setProperty(runtime, "latitude", latLngBounds.northeast.latitude);
+    northeast.setProperty(runtime, "longitude", latLngBounds.northeast.longitude);
+
+    auto result = jsi::Object(runtime);
+    result.setProperty(runtime, "southwest", southwest);
+    result.setProperty(runtime, "northeast", northeast);
+    return result;
+}
+
+void MapViewEventEmitter::onCameraMove(struct onCameraMoveEvent event) const {
     dispatchEvent("CameraMove", [event = std::move(event)](jsi::Runtime &runtime) {
         auto payload = jsi::Object(runtime);
-        payload.setProperty(runtime, "zoom", event.zoom);
-        payload.setProperty(runtime, "bearing", event.bearing);
-        payload.setProperty(runtime, "tilt", event.tilt);
-        auto target = jsi::Object(runtime);
-        target.setProperty(runtime, "longitude", event.target.longitude);
-        target.setProperty(runtime, "latitude", event.target.latitude);
-        payload.setProperty(runtime, "targetValue", target);
+        payload.setProperty(runtime, "cameraPosition", toJsiCameraPosition(runtime, event.cameraPosition));
+        payload.setProperty(runtime, "latLngBounds", toJsiLatLngBounds(runtime, event.latLngBounds));
         return payload;
     });
 }
 
-void MapViewEventEmitter::onCameraIdle(struct CameraPosition event) const {
+void MapViewEventEmitter::onCameraIdle(struct onCameraIdleEvent event) const {
     dispatchEvent("CameraIdle", [event = std::move(event)](jsi::Runtime &runtime) {
         auto payload = jsi::Object(runtime);
-        payload.setProperty(runtime, "zoom", event.zoom);
-        payload.setProperty(runtime, "bearing", event.bearing);
-        payload.setProperty(runtime, "tilt", event.tilt);
-        auto target = jsi::Object(runtime);
-        target.setProperty(runtime, "longitude", event.target.longitude);
-        target.setProperty(runtime, "latitude", event.target.latitude);
-        payload.setProperty(runtime, "targetValue", target);
+        payload.setProperty(runtime, "cameraPosition", toJsiCameraPosition(runtime, event.cameraPosition));
+        payload.setProperty(runtime, "latLngBounds", toJsiLatLngBounds(runtime, event.latLngBounds));
         return payload;
     });
 }

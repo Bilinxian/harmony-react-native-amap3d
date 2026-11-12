@@ -58,14 +58,23 @@ public:
         double bearing;
         double tilt;
     };
-    
+    struct onCameraMoveEvent {
+        CameraPosition cameraPosition;
+        LatLngBounds latLngBounds;
+    };
+
+    struct onCameraIdleEvent {
+        CameraPosition cameraPosition;
+        LatLngBounds latLngBounds;
+    };
+
     struct onLoadEvent {};
 
     void onPress(struct onPressEvent value) const;
     void onPressPoi(struct onMapPoiEvent value) const;
     void onLongPress(struct onLongPressEvent value) const;
-    void onCameraMove(struct CameraPosition value) const;
-    void onCameraIdle(struct CameraPosition value) const;
+    void onCameraMove(struct onCameraMoveEvent value) const;
+    void onCameraIdle(struct onCameraIdleEvent value) const;
     void onLoad(struct onLoadEvent value) const;
 };
 class JSI_EXPORT CircleEventEmitter : public ViewEventEmitter {

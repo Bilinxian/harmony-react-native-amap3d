@@ -77,10 +77,35 @@ AMapMarkerEventType getAMapMarkerEventType(ArkJS &arkJs, napi_value eventObject)
     }
 }
 
+facebook::react::MapViewEventEmitter::CameraPosition parseCameraPosition(ArkJS &arkJs, napi_value payload) {
+    RNOHNapiObject cameraPosition = arkJs.getObject(arkJs.getObjectProperty(payload, "CameraPosition"));
+    double zoom = (double)arkJs.getDouble(cameraPosition.getProperty("zoom"));
+    double bearing = (double)arkJs.getDouble(cameraPosition.getProperty("bearing"));
+    double tilt = (double)arkJs.getDouble(cameraPosition.getProperty("tilt"));
+    RNOHNapiObject target = arkJs.getObject(cameraPosition.getProperty("target"));
+    double latitude = (double)arkJs.getDouble(target.getProperty("latitude"));
+    double longitude = (double)arkJs.getDouble(target.getProperty("longitude"));
+    facebook::react::MapViewEventEmitter::LatLng targetL{latitude, longitude};
+    return facebook::react::MapViewEventEmitter::CameraPosition{targetL, zoom, bearing, tilt};
+}
+
+facebook::react::MapViewEventEmitter::LatLngBounds parseLatLngBounds(ArkJS &arkJs, napi_value payload) {
+    RNOHNapiObject latLngBoundsObj = arkJs.getObject(arkJs.getObjectProperty(payload, "LatLngBounds"));
+    RNOHNapiObject southwestObj = arkJs.getObject(latLngBoundsObj.getProperty("southwest"));
+    double swLat = (double)arkJs.getDouble(southwestObj.getProperty("latitude"));
+    double swLng = (double)arkJs.getDouble(southwestObj.getProperty("longitude"));
+    RNOHNapiObject northeastObj = arkJs.getObject(latLngBoundsObj.getProperty("northeast"));
+    double neLat = (double)arkJs.getDouble(northeastObj.getProperty("latitude"));
+    double neLng = (double)arkJs.getDouble(northeastObj.getProperty("longitude"));
+    facebook::react::MapViewEventEmitter::LatLng sw{swLat, swLng};
+    facebook::react::MapViewEventEmitter::LatLng ne{neLat, neLng};
+    return facebook::react::MapViewEventEmitter::LatLngBounds{sw, ne};
+}
+
 class AMapViewEventEmitRequestHandler : public EventEmitRequestHandler {
 public:
     void handleEvent(EventEmitRequestHandler::Context const &ctx) override {
-        LOG(INFO) << "AMapViewEventEmitRequestHandler AMapViewEventType::RNC_ONLoad entry";
+//        LOG(INFO) << "AMapViewEventEmitRequestHandler AMapViewEventType::RNC_ONLoad entry";
         if (ctx.eventName != "AMapView") {
             return;
         }
@@ -89,7 +114,7 @@ public:
         if (eventEmitter == nullptr) {
             return;
         }
-        LOG(INFO) << "AMapViewEventEmitRequestHandler AMapViewEventType eventEmitter not nullptr";
+//        LOG(INFO) << "AMapViewEventEmitRequestHandler AMapViewEventType eventEmitter not nullptr";
         switch (getAMapViewEventType(arkJs, ctx.payload)) {
         case AMapViewEventType::RNC_ONPress: {
             RNOHNapiObject target = arkJs.getObject((arkJs.getObjectProperty(ctx.payload, "LatLng")));
@@ -111,7 +136,7 @@ public:
             eventEmitter->onPressPoi(event);
             break;
         }
-         case AMapViewEventType::RNC_ONLongPress: {
+        case AMapViewEventType::RNC_ONLongPress: {
             RNOHNapiObject target = arkJs.getObject((arkJs.getObjectProperty(ctx.payload, "LatLng")));
             double latitude = (double)arkJs.getDouble(target.getProperty("latitude"));
             double longitude = (double)arkJs.getDouble(target.getProperty("longitude"));
@@ -120,33 +145,21 @@ public:
             break;
         }
         case AMapViewEventType::RNC_ONCameraMove: {
-            RNOHNapiObject cameraPosition = arkJs.getObject((arkJs.getObjectProperty(ctx.payload, "CameraPosition")));
-            double zoom = (double)arkJs.getDouble(cameraPosition.getProperty("zoom"));
-            double bearing = (double)arkJs.getDouble(cameraPosition.getProperty("bearing"));
-            double tilt = (double)arkJs.getDouble(cameraPosition.getProperty("tilt"));
-            RNOHNapiObject target = arkJs.getObject(cameraPosition.getProperty("target"));
-            double latitude = (double)arkJs.getDouble(target.getProperty("latitude"));
-            double longitude = (double)arkJs.getDouble(target.getProperty("longitude"));
-            facebook::react::MapViewEventEmitter::LatLng targetL{latitude, longitude};
-            facebook::react::MapViewEventEmitter::CameraPosition event{targetL, zoom, bearing, tilt};
-            eventEmitter->onCameraMove(event);
+            auto cameraPosition = parseCameraPosition(arkJs, ctx.payload);
+                auto latLngBounds = parseLatLngBounds(arkJs, ctx.payload);
+                facebook::react::MapViewEventEmitter::onCameraMoveEvent event{cameraPosition, latLngBounds};
+                eventEmitter->onCameraMove(event);
             break;
         }
         case AMapViewEventType::RNC_ONCameraIdle: {
-            RNOHNapiObject cameraPosition = arkJs.getObject((arkJs.getObjectProperty(ctx.payload, "CameraPosition")));
-            double zoom = (double)arkJs.getDouble(cameraPosition.getProperty("zoom"));
-            double bearing = (double)arkJs.getDouble(cameraPosition.getProperty("bearing"));
-            double tilt = (double)arkJs.getDouble(cameraPosition.getProperty("tilt"));
-            RNOHNapiObject target = arkJs.getObject(cameraPosition.getProperty("target"));
-            double latitude = (double)arkJs.getDouble(target.getProperty("latitude"));
-            double longitude = (double)arkJs.getDouble(target.getProperty("longitude"));
-            facebook::react::MapViewEventEmitter::LatLng targetL{latitude, longitude};
-            facebook::react::MapViewEventEmitter::CameraPosition event{targetL, zoom, bearing, tilt};
-            eventEmitter->onCameraIdle(event);
+            auto cameraPosition = parseCameraPosition(arkJs, ctx.payload);
+                auto latLngBounds = parseLatLngBounds(arkJs, ctx.payload);
+                facebook::react::MapViewEventEmitter::onCameraIdleEvent event{cameraPosition, latLngBounds};
+                eventEmitter->onCameraIdle(event);
             break;
         }
         case AMapViewEventType::RNC_ONLoad: {
-            LOG(INFO) << "AMapViewEventEmitRequestHandler AMapViewEventType::RNC_ONLoad entry";
+//            LOG(INFO) << "AMapViewEventEmitRequestHandler AMapViewEventType::RNC_ONLoad entry";
             facebook::react::MapViewEventEmitter::onLoadEvent event{};
             eventEmitter->onLoad(event);
             break;
